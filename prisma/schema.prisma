@@ -1,0 +1,675 @@
+// Prisma Schema - Rumah Sakit Setiabudi HMS
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  ADMIN
+  DOKTER
+  PASIEN
+  APOTEKER
+  KASIR
+  PERAWAT
+}
+
+enum Gender {
+  LAKI_LAKI
+  PEREMPUAN
+}
+
+enum BloodType {
+  A
+  B
+  AB
+  O
+}
+
+enum BookingStatus {
+  MENUNGGU
+  DIKONFIRMASI
+  CHECKED_IN
+  SELESAI
+  BATAL
+}
+
+enum QueueStatus {
+  MENUNGGU
+  DIPANGGIL
+  DALAM_PEMERIKSAAN
+  SELESAI
+  TIDAK_HADIR
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  DEBIT
+  KREDIT
+  QRIS
+  TRANSFER
+}
+
+enum PrescriptionStatus {
+  MENUNGGU
+  DIPROSES
+  SIAP_DIAMBIL
+  SUDAH_DIAMBIL
+}
+
+enum RoomStatus {
+  KOSONG
+  TERISI
+  MAINTENANCE
+}
+
+enum RoomClass {
+  VIP
+  KELAS_1
+  KELAS_2
+  KELAS_3
+}
+
+enum LabStatus {
+  MENUNGGU
+  DIPROSES
+  SELESAI
+}
+
+enum RadiologyStatus {
+  MENUNGGU
+  DIPROSES
+  SELESAI
+}
+
+enum DayOfWeek {
+  SENIN
+  SELASA
+  RABU
+  KAMIS
+  JUMAT
+  SABTU
+  MINGGU
+}
+
+enum DoctorStatus {
+  AKTIF
+  TIDAK_AKTIF
+  CUTI
+}
+
+// ==================== USER & AUTH ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(PASIEN)
+  phone         String?
+  image         String?
+  isVerified    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient       Patient?
+  doctor        Doctor?
+  pharmacist    Pharmacist?
+  cashier       Cashier?
+  nurse         Nurse?
+  accounts      Account[]
+  sessions      Session[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==================== PASIEN ====================
+
+model Patient {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  noRM            String    @unique
+  nik             String?   @unique
+  name            String
+  gender          Gender?
+  tempatLahir     String?
+  tanggalLahir    DateTime?
+  alamat          String?
+  phone           String?
+  email           String?
+  golonganDarah   BloodType?
+  bpjs            String?
+  asuransi        String?
+  kontakDarurat   String?
+  kontakDaruratPhone String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookings        Booking[]
+  medicalRecords  MedicalRecord[]
+  diseaseHistories DiseaseHistory[]
+  inpatient       Inpatient[]
+
+  @@index([noRM])
+  @@index([nik])
+  @@index([name])
+}
+
+// ==================== DOKTER ====================
+
+model Doctor {
+  id            String       @id @default(cuid())
+  userId        String       @unique
+  sip           String?      @unique
+  str           String?      @unique
+  name          String
+  specialization String?
+  pengalaman    String?
+  pendidikan    String?
+  foto          String?
+  status        DoctorStatus @default(AKTIF)
+  rating        Float        @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedules     Schedule[]
+  bookings      Booking[]
+  medicalRecords MedicalRecord[]
+  prescriptions Prescription[]
+  doctorSpecializations DoctorSpecialization[]
+
+  @@index([name])
+  @@index([specialization])
+}
+
+// ==================== SPESIALISASI / POLI ====================
+
+model Specialization {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctorSpecializations DoctorSpecialization[]
+  bookings    Booking[]
+
+  @@index([name])
+}
+
+model DoctorSpecialization {
+  id               String         @id @default(cuid())
+  doctorId         String
+  specializationId String
+  doctor           Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialization   Specialization @relation(fields: [specializationId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, specializationId])
+}
+
+// ==================== DEPARTMENT / POLI ====================
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bookings    Booking[]
+
+  @@index([name])
+}
+
+// ==================== JADWAL DOKTER ====================
+
+model Schedule {
+  id        String     @id @default(cuid())
+  doctorId  String
+  day       DayOfWeek
+  startTime String
+  endTime   String
+  kuota     Int        @default(10)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  doctor    Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  bookings  Booking[]
+
+  @@index([doctorId])
+  @@index([day])
+}
+
+// ==================== BOOKING ====================
+
+model Booking {
+  id               String        @id @default(cuid())
+  patientId        String
+  doctorId         String
+  scheduleId       String
+  departmentId     String?
+  specializationId String?
+  bookingDate      DateTime
+  bookingTime      String
+  queueNumber      Int
+  status           BookingStatus @default(MENUNGGU)
+  keluhan          String?
+  qrCode           String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  patient          Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor           Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  schedule         Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  department       Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  specialization   Specialization? @relation(fields: [specializationId], references: [id], onDelete: SetNull)
+  checkIn          CheckIn?
+  queue            Queue?
+  payment          Payment?
+  medicalRecord    MedicalRecord?
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([bookingDate])
+  @@index([status])
+  @@index([queueNumber])
+}
+
+// ==================== ANTRIAN ====================
+
+model Queue {
+  id          String       @id @default(cuid())
+  bookingId   String       @unique
+  queueNumber Int
+  status      QueueStatus  @default(MENUNGGU)
+  calledAt    DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([queueNumber])
+  @@index([status])
+}
+
+// ==================== CHECK IN ====================
+
+model CheckIn {
+  id          String   @id @default(cuid())
+  bookingId   String   @unique
+  checkedInAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+// ==================== REKAM MEDIS ====================
+
+model MedicalRecord {
+  id           String   @id @default(cuid())
+  patientId    String
+  doctorId     String
+  bookingId    String?  @unique
+  keluhan      String?
+  tekananDarah String?
+  beratBadan   Float?
+  tinggiBadan  Float?
+  suhuTubuh    Float?
+  catatan      String?
+  tindakan     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor       Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  booking      Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  diagnoses    Diagnosis[]
+  prescriptions Prescription[]
+  laboratories Laboratory[]
+  radiologies  Radiology[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([createdAt])
+}
+
+// ==================== DIAGNOSA ====================
+
+model Diagnosis {
+  id              String   @id @default(cuid())
+  medicalRecordId String
+  penyakit        String
+  icdCode         String?
+  catatan         String?
+  createdAt       DateTime @default(now())
+
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  diseaseHistory  DiseaseHistory?
+
+  @@index([medicalRecordId])
+  @@index([penyakit])
+}
+
+// ==================== RIWAYAT PENYAKIT ====================
+
+model DiseaseHistory {
+  id          String   @id @default(cuid())
+  patientId   String
+  diagnosisId String   @unique
+  penyakit    String
+  icdCode     String?
+  tanggal     DateTime @default(now())
+  catatan     String?
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  diagnosis   Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([penyakit])
+}
+
+// ==================== RESEP ====================
+
+model Prescription {
+  id              String             @id @default(cuid())
+  medicalRecordId String
+  doctorId        String
+  nomorResep      String             @unique
+  status          PrescriptionStatus @default(MENUNGGU)
+  catatan         String?
+  qrCode          String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  medicalRecord   MedicalRecord      @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  doctor          Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  items           PrescriptionItem[]
+
+  @@index([nomorResep])
+  @@index([status])
+  @@index([medicalRecordId])
+}
+
+model PrescriptionItem {
+  id             String       @id @default(cuid())
+  prescriptionId String
+  medicineId     String
+  jumlah         Int
+  aturanMinum    String?
+  catatan        String?
+  createdAt      DateTime     @default(now())
+
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicine       Medicine     @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+  @@index([medicineId])
+}
+
+// ==================== OBAT ====================
+
+model Medicine {
+  id          String   @id @default(cuid())
+  name        String
+  kategori    String?
+  satuan      String?
+  harga       Float    @default(0)
+  stok        Int      @default(0)
+  deskripsi   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prescriptionItems PrescriptionItem[]
+
+  @@index([name])
+}
+
+// ==================== APOTEKER ====================
+
+model Pharmacist {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String
+  sip       String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== KASIR ====================
+
+model Cashier {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== PERAWAT ====================
+
+model Nurse {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  name      String
+  sip       String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ==================== PEMBAYARAN ====================
+
+model Payment {
+  id              String        @id @default(cuid())
+  bookingId       String        @unique
+  biayaKonsultasi Float         @default(0)
+  biayaObat       Float         @default(0)
+  biayaLab        Float         @default(0)
+  biayaRadiologi  Float         @default(0)
+  biayaRawatInap  Float         @default(0)
+  total           Float         @default(0)
+  metode          PaymentMethod?
+  status          PaymentStatus @default(PENDING)
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  booking         Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  invoice         Invoice?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Invoice {
+  id           String   @id @default(cuid())
+  paymentId    String   @unique
+  nomorInvoice String   @unique
+  pdfUrl       String?
+  createdAt    DateTime @default(now())
+
+  payment      Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([nomorInvoice])
+}
+
+// ==================== RAWAT INAP ====================
+
+model Room {
+  id         String     @id @default(cuid())
+  nomorKamar String     @unique
+  kelas      RoomClass
+  harga      Float      @default(0)
+  status     RoomStatus @default(KOSONG)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  inpatients Inpatient[]
+
+  @@index([kelas])
+  @@index([status])
+}
+
+model Inpatient {
+  id            String   @id @default(cuid())
+  patientId     String
+  roomId        String
+  tanggalMasuk  DateTime @default(now())
+  tanggalKeluar DateTime?
+  diagnosaAwal  String?
+  catatan       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([roomId])
+  @@index([tanggalMasuk])
+}
+
+// ==================== LABORATORIUM ====================
+
+model Laboratory {
+  id               String    @id @default(cuid())
+  medicalRecordId  String
+  jenisPemeriksaan String
+  hasil            String?
+  fileUrl          String?
+  status           LabStatus @default(MENUNGGU)
+  catatan          String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  medicalRecord    MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  @@index([medicalRecordId])
+  @@index([status])
+}
+
+// ==================== RADIOLOGI ====================
+
+model Radiology {
+  id               String          @id @default(cuid())
+  medicalRecordId  String
+  jenisPemeriksaan String
+  hasil            String?
+  fileUrl          String?
+  status           RadiologyStatus @default(MENUNGGU)
+  catatan          String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  medicalRecord    MedicalRecord   @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  @@index([medicalRecordId])
+  @@index([status])
+}
+
+// ==================== NOTIFIKASI ====================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  type      String?
+  link      String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ==================== AUDIT LOG ====================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}

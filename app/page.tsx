@@ -1,1068 +1,904 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, useInView, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import { useAuth } from "@/providers";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-  PieChart,
-  Pie,
-} from "recharts";
-import {
-  TrendingUp,
-  Shield,
-  BarChart3,
-  Award,
-  Layers,
-  Cpu,
-  Globe,
-  CheckCircle2,
-  ArrowUpRight,
-  Mail,
-  MessageSquare,
-  ExternalLink,
-  ChevronRight,
   Menu,
   X,
-  Zap,
+  ChevronRight,
+  Star,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  ArrowRight,
+  Stethoscope,
+  Bed,
+  Ambulance,
+  FlaskConical,
+  Scan,
+  Pill,
+  HeartPulse,
+  Syringe,
+  Quote,
+  Calendar,
+  User,
+  Shield,
   Activity,
-  Target,
-  Briefcase,
+  Globe,
+  Video,
+  MessageCircle,
 } from "lucide-react";
-import { Variants } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { APP_NAME, SERVICES, STATS, CONTACT_INFO } from "@/constants";
 
-// --- DATA DUMMY UNTUK DASHBOARD & KINERJA ---
-const dataRoiBulanan = [
-  { name: "Jan", ROI: 8 },
-  { name: "Feb", ROI: 14 },
-  { name: "Mar", ROI: 11 },
-  { name: "Apr", ROI: 15 },
-  { name: "Mei", ROI: 10 },
-  { name: "Jun", ROI: 16 },
-  { name: "Jul", ROI: 13 },
-  { name: "Agu", ROI: 12 },
-  { name: "Sep", ROI: 18 },
-  { name: "Okt", ROI: 14 },
-  { name: "Nov", ROI: 11 },
-  { name: "Des", ROI: 17 },
-];
-
-const pertumbuhanPortofolio = [
-  { tahun: "2023 Q1", Saldo: 500000 },
-  { tahun: "2023 Q3", Saldo: 850000 },
-  { tahun: "2024 Q1", Saldo: 1200000 },
-  { tahun: "2024 Q3", Saldo: 1750000 },
-  { tahun: "2025 Q1", Saldo: 2100000 },
-  { tahun: "2026 Q2", Saldo: 2500000 },
-];
-
-const alokasiAset = [
-  { name: "Kripto", value: 35, color: "#3b82f6" },
-  { name: "Forex", value: 25, color: "#10b981" },
-  { name: "Emas (XAU)", value: 20, color: "#f59e0b" },
-  { name: "Indeks & Saham", value: 20, color: "#8b5cf6" },
-];
-
-const dataTicker = [
-  { pair: "BTC/USDT", price: "67.420,50", change: "+4,2%", up: true },
-  { pair: "XAU/USD", price: "2.342,80", change: "+1,1%", up: true },
-  { pair: "EUR/USD", price: "1,08420", change: "-0,15%", up: false },
-  { pair: "NASDAQ 100", price: "18.240,10", change: "+0,85%", up: true },
-  { pair: "ETH/USDT", price: "3.520,15", change: "+5,6%", up: true },
-];
-
-// --- KONFIGURASI ANIMASI ---
+const fadeInUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
+};
 
 const staggerContainer = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-
-// --- KOMPONEN: ANIMASI ANGKA ---
-const AnimatedCounter = ({
-  value,
-  suffix = "",
-}: {
-  value: string;
-  suffix?: string;
-}) => {
-  return (
-    <motion.span
-      initial={{ opacity: 0, scale: 0.5 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, type: "spring" }}
-      className="text-3xl md:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400"
-    >
-      {value}
-      {suffix}
-    </motion.span>
-  );
-};
-
-const fadeInUp: Variants = {
-  hidden: { opacity: 0, y: 40 },
   visible: {
     opacity: 1,
-    y: 0,
-    transition: { duration: 0.6, ease: "easeOut" },
+    transition: { staggerChildren: 0.1 },
   },
 };
 
-export default function PremiumPortfolio() {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("ikhtisar");
+const iconMap: Record<string, React.ElementType> = {
+  Stethoscope,
+  Bed,
+  Ambulance,
+  FlaskConical,
+  Scan,
+  Pill,
+  HeartPulse,
+  Syringe,
+};
+
+const testimonials = [
+  {
+    name: "Ibu Sari Dewi",
+    role: "Pasien Rawat Jalan",
+    content:
+      "Pelayanan di RS Setiabudi sangat memuaskan. Dokter-dokternya profesional dan ramah. Proses administrasi juga cepat berkat sistem digitalnya.",
+    rating: 5,
+  },
+  {
+    name: "Bapak Ahmad Rizki",
+    role: "Pasien Rawat Inap",
+    content:
+      "Fasilitas rawat inap sangat nyaman. Perawatnya sigap 24 jam. Saya merasa seperti dirawat di rumah sendiri.",
+    rating: 5,
+  },
+  {
+    name: "Ibu Maria Santoso",
+    role: "Pasien MCU",
+    content:
+      "Medical Check Up di sini lengkap dan hasilnya cepat. Harganya juga terjangkau untuk kualitas yang didapatkan.",
+    rating: 4,
+  },
+  {
+    name: "Bapak Hendra Gunawan",
+    role: "Pasien UGD",
+    content:
+      "Tanggap daruratnya sangat cepat. Tim medis langsung sigap menangani saya. Terima kasih RS Setiabudi.",
+    rating: 5,
+  },
+];
+
+const doctors = [
+  {
+    name: "dr. Andi Pratama, Sp.PD",
+    spesialis: "Penyakit Dalam",
+    rating: 4.9,
+    pasien: 1250,
+  },
+  {
+    name: "dr. Sarah Wijaya, Sp.A",
+    spesialis: "Anak",
+    rating: 4.8,
+    pasien: 980,
+  },
+  {
+    name: "dr. Budi Santoso, Sp.OG",
+    spesialis: "Kandungan",
+    rating: 4.9,
+    pasien: 1500,
+  },
+  {
+    name: "dr. Rina Marlina, Sp.JP",
+    spesialis: "Jantung",
+    rating: 4.7,
+    pasien: 870,
+  },
+];
+
+function AnimatedCounter({
+  value,
+  suffix = "",
+  duration = 2,
+}: {
+  value: number;
+  suffix?: string;
+  duration?: number;
+}) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true });
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+    if (!isInView) return;
+    let start = 0;
+    const increment = value / (duration * 60);
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= value) {
+        setCount(value);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(start));
+      }
+    }, 1000 / 60);
+    return () => clearInterval(timer);
+  }, [isInView, value, duration]);
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1) + "k";
+    }
+    return num.toString();
+  };
 
   return (
-    <div className="min-h-screen bg-[#050816] text-slate-100 font-sans overflow-x-hidden selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* EFEK LATAR BELAKANG: GLOW INTERAKTIF & GRID */}
-      <div
-        className="pointer-events-none fixed inset-0 z-30 opacity-40 transition-duration-300 hidden md:block"
-        style={{
-          background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.15), transparent 80%)`,
-        }}
-      />
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f293710_1px,transparent_1px),linear-gradient(to_bottom,#1f293710_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-[120vh] right-1/4 w-[500px] h-[500px] bg-purple-600/5 rounded-full blur-[150px] pointer-events-none" />
+    <span ref={ref} className="text-4xl md:text-5xl font-bold text-white">
+      {formatNumber(count)}
+      {suffix}
+    </span>
+  );
+}
 
-      {/* TICKER PASAR LANGSUNG (DUMMY) */}
-      <div className="w-full bg-[#0a0f24] border-b border-slate-800/60 text-xs py-2.5 overflow-hidden sticky top-0 z-50 backdrop-blur-md bg-opacity-80">
-        <div className="flex whitespace-nowrap animate-[marquee_25s_linear_infinite] gap-12 items-center">
-          {[...dataTicker, ...dataTicker].map((item, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <span className="font-semibold text-slate-400">{item.pair}</span>
-              <span className="font-mono text-slate-200">{item.price}</span>
-              <span
-                className={`font-mono flex items-center ${item.up ? "text-emerald-400" : "text-rose-400"}`}
-              >
-                {item.up ? "▲" : "▼"} {item.change}
-              </span>
+export default function LandingPage() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const { user } = useAuth();
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* ===== NAVBAR ===== */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 md:h-20">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-200">
+                <HeartPulse className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <span className="text-lg font-bold text-gray-900">
+                  RS Setiabudi
+                </span>
+                <span className="hidden sm:block text-[10px] font-medium text-blue-600 -mt-1">
+                  Hospital Management System
+                </span>
+              </div>
+            </Link>
+
+            <nav className="hidden lg:flex items-center gap-8">
+              {[
+                { href: "/", label: "Beranda" },
+                { href: "#dokter", label: "Dokter" },
+                { href: "#layanan", label: "Layanan" },
+                { href: "#jadwal", label: "Jadwal" },
+                { href: "#tentang", label: "Tentang" },
+                { href: "#kontak", label: "Kontak" },
+              ].map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors relative group"
+                >
+                  {link.label}
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-blue-600 transition-all group-hover:w-full" />
+                </a>
+              ))}
+            </nav>
+
+            <div className="hidden lg:flex items-center gap-3">
+              {user ? (
+                <Link href="/dashboard">
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Dashboard
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="ghost" className="text-gray-700">
+                      Masuk
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200">
+                      Daftar
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* NAVIGASI / HEADER */}
-      <header className="w-full border-b border-slate-900 bg-[#050816]/70 backdrop-blur-xl z-40 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2"
-          >
-            <div className="h-10 w-10 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
-              NOVA <span className="text-cyan-400 font-light">HARYANTO</span>
-            </span>
-          </motion.div>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-400">
-            {[
-              { id: "beranda", label: "Beranda" },
-              { id: "tentang", label: "Tentang Saya" },
-              { id: "keahlian", label: "Keahlian" },
-              { id: "kinerja", label: "Kinerja" },
-              { id: "prestasi", label: "Prestasi" },
-              { id: "filosofi", label: "Filosofi" },
-            ].map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className="hover:text-cyan-400 transition-colors duration-200 relative group"
-              >
-                {item.label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-400 transition-all duration-300 group-hover:w-full" />
-              </a>
-            ))}
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            <a
-              href="#kontak"
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 transition-all shadow-md shadow-blue-600/20 flex items-center gap-2 group"
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 text-gray-600 hover:text-gray-900"
             >
-              Hubungi Institusi{" "}
-              <ChevronRight className="h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
-            </a>
+              {isMobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
           </div>
-
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 text-slate-400 hover:text-white"
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
         </div>
+
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="lg:hidden border-t border-gray-100 bg-white"
+            >
+              <div className="px-4 py-6 space-y-4">
+                {[
+                  { href: "/", label: "Beranda" },
+                  { href: "#dokter", label: "Dokter" },
+                  { href: "#layanan", label: "Layanan" },
+                  { href: "#jadwal", label: "Jadwal" },
+                  { href: "#tentang", label: "Tentang" },
+                  { href: "#kontak", label: "Kontak" },
+                ].map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="block text-sm font-medium text-gray-600 hover:text-blue-600 py-2"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+                <div className="pt-4 border-t border-gray-100 flex flex-col gap-3">
+                  {user ? (
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                        Dashboard
+                      </Button>
+                    </Link>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Button variant="outline" className="w-full">
+                          Masuk
+                        </Button>
+                      </Link>
+                      <Link
+                        href="/register"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                          Daftar
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
-      {/* PANEL MENU MOBILE */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-x-0 bg-[#0a0f24] border-b border-slate-800 z-40 p-6 flex flex-col gap-4 md:hidden backdrop-blur-xl"
-          >
-            {[
-              { id: "beranda", label: "Beranda" },
-              { id: "tentang", label: "Tentang Saya" },
-              { id: "keahlian", label: "Keahlian" },
-              { id: "kinerja", label: "Kinerja" },
-              { id: "prestasi", label: "Prestasi" },
-              { id: "filosofi", label: "Filosofi" },
-              { id: "kontak", label: "Kontak" },
-            ].map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-lg font-medium text-slate-300 hover:text-cyan-400"
-              >
-                {item.label}
-              </a>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ===== HERO SECTION ===== */}
+      <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50" />
+        <div className="absolute top-20 right-20 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 left-20 w-80 h-80 bg-blue-300/20 rounded-full blur-3xl" />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* HERO SECTION */}
-        <section
-          id="beranda"
-          className="min-h-[calc(100vh-5rem)] flex flex-col justify-center pt-10 pb-20"
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
             <motion.div
               initial="hidden"
               animate="visible"
               variants={staggerContainer}
-              className="lg:col-span-7 flex flex-col gap-6"
+              className="space-y-8"
             >
               <motion.div
                 variants={fadeInUp}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-cyan-400 tracking-wide w-fit"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20"
               >
-                <Zap className="h-3 w-3" /> TRADER GLOBAL ALGORITMIK &
-                DISKRESIONER
+                <Shield className="h-4 w-4 text-green-300" />
+                <span className="text-sm font-medium text-white/90">
+                  Terakreditasi KARS 2026
+                </span>
               </motion.div>
 
               <motion.h1
                 variants={fadeInUp}
-                className="text-4xl sm:text-6xl font-black tracking-tight leading-none text-white"
+                className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight"
               >
-                Turning Market <br />
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400">
-                  Opportunities
-                </span>{" "}
-                <br />
-                Into Consistent Results.
+                {APP_NAME}
+                <span className="block text-blue-200 text-2xl sm:text-3xl lg:text-4xl font-light mt-4">
+                  Pelayanan Kesehatan Modern, Cepat, Aman, dan Terpercaya
+                </span>
               </motion.h1>
 
               <motion.p
                 variants={fadeInUp}
-                className="text-slate-400 text-lg max-w-xl leading-relaxed"
+                className="text-lg text-blue-100/80 max-w-xl leading-relaxed"
               >
-                Halo, saya <strong className="text-white">Nova Haryanto</strong>
-                , seorang Professional Financial Trader yang berbasis di
-                Tangerang, Indonesia. Spesialis dalam manajemen risiko super
-                rigid lintas instrumen Forex, Kripto, dan Indeks Global.
+                Didukung dokter spesialis terbaik serta sistem digital terpadu
+                untuk memberikan pelayanan kesehatan optimal bagi Anda dan
+                keluarga.
               </motion.p>
+
+              <motion.div variants={fadeInUp} className="flex flex-wrap gap-4">
+                <Link href="/dashboard/booking">
+                  <Button
+                    size="xl"
+                    className="bg-white text-blue-700 hover:bg-blue-50 shadow-2xl shadow-blue-900/30 group"
+                  >
+                    Buat Janji
+                    <Calendar className="h-5 w-5 ml-2 group-hover:rotate-12 transition-transform" />
+                  </Button>
+                </Link>
+                <Link href="#dokter">
+                  <Button
+                    size="xl"
+                    variant="outline"
+                    className="border-white/30 text-white hover:bg-white/10"
+                  >
+                    Lihat Dokter
+                    <ChevronRight className="h-5 w-5 ml-1" />
+                  </Button>
+                </Link>
+              </motion.div>
 
               <motion.div
                 variants={fadeInUp}
-                className="flex flex-wrap gap-4 pt-4"
+                className="flex items-center gap-8 pt-4"
               >
-                <a
-                  href="#kinerja"
-                  className="px-8 py-4 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25 hover:shadow-cyan-500/30 transition-all flex items-center gap-3 group"
-                >
-                  Lihat Kinerja Real-Time{" "}
-                  <ArrowUpRight className="h-5 w-5 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                </a>
-                <a
-                  href="#kontak"
-                  className="px-8 py-4 rounded-xl font-bold bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-all"
-                >
-                  Mulai Kemitraan
-                </a>
+                <div className="flex -space-x-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="w-10 h-10 rounded-full border-2 border-white bg-blue-100 flex items-center justify-center"
+                    >
+                      <User className="h-5 w-5 text-blue-600" />
+                    </div>
+                  ))}
+                  <div className="w-10 h-10 rounded-full border-2 border-white bg-blue-600 flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">+</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star
+                        key={i}
+                        className="h-4 w-4 fill-yellow-400 text-yellow-400"
+                      />
+                    ))}
+                  </div>
+                  <p className="text-sm text-blue-100/70">
+                    Dipercaya 50.000+ pasien
+                  </p>
+                </div>
               </motion.div>
             </motion.div>
 
-            {/* VISUALISASI HERO / KOMPONEN DASHBOARD */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="lg:col-span-5 relative"
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="hidden lg:block relative"
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 rounded-2xl blur-2xl opacity-50" />
-              <div className="relative border border-slate-800 bg-[#0a0f24]/80 backdrop-blur-xl rounded-2xl p-6 shadow-2xl">
-                {/* Header Kontrol Jendela Simulasi */}
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-rose-500 block" />
-                    <span className="w-3 h-3 rounded-full bg-amber-500 block" />
-                    <span className="w-3 h-3 rounded-full bg-emerald-500 block" />
-                    <span className="text-xs text-slate-500 ml-2 font-mono">
-                      XAUUSD_H4_EKSEKUSI_ALGO
-                    </span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-mono">
-                    DATA LIVE
-                  </span>
-                </div>
-
-                {/* Wadah Grafik Simulasi */}
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dataRoiBulanan.slice(6)}>
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="#1e293b/30"
-                      />
-                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#0f172a",
-                          borderColor: "#334155",
-                          borderRadius: "8px",
-                        }}
-                        labelStyle={{ color: "#94a3b8" }}
-                      />
-                      <Bar dataKey="ROI" fill="#10b981" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Metrik Terapung di Dalam Hero */}
-                <div className="grid grid-cols-2 gap-4 mt-6 pt-4 border-t border-slate-800/80">
-                  <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-800">
-                    <div className="text-xs text-slate-500">WIN RATE</div>
-                    <div className="text-xl font-bold text-emerald-400">
-                      78.0%
+              <div className="relative">
+                <div className="w-full aspect-square max-w-lg mx-auto bg-white/5 backdrop-blur-sm rounded-3xl border border-white/10 p-8">
+                  <div className="grid grid-cols-2 gap-4 h-full">
+                    <div className="space-y-4">
+                      <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
+                        <Activity className="h-8 w-8 text-green-300 mb-2" />
+                        <p className="text-white text-sm font-medium">
+                          Monitoring
+                        </p>
+                        <p className="text-blue-200 text-xs">Real-time</p>
+                      </div>
+                      <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
+                        <Stethoscope className="h-8 w-8 text-blue-300 mb-2" />
+                        <p className="text-white text-sm font-medium">
+                          Spesialis
+                        </p>
+                        <p className="text-blue-200 text-xs">Terbaik</p>
+                      </div>
+                    </div>
+                    <div className="space-y-4 mt-8">
+                      <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
+                        <HeartPulse className="h-8 w-8 text-red-300 mb-2" />
+                        <p className="text-white text-sm font-medium">
+                          UGD 24 Jam
+                        </p>
+                        <p className="text-blue-200 text-xs">Siaga</p>
+                      </div>
+                      <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm">
+                        <Scan className="h-8 w-8 text-purple-300 mb-2" />
+                        <p className="text-white text-sm font-medium">
+                          Radiologi
+                        </p>
+                        <p className="text-blue-200 text-xs">Modern</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-800">
-                    <div className="text-xs text-slate-500">FAKTOR PROFIT</div>
-                    <div className="text-xl font-bold text-cyan-400">3,42</div>
+                </div>
+                <div className="absolute -top-4 -right-4 bg-white rounded-xl shadow-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                      <Shield className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">98%</p>
+                      <p className="text-xs text-gray-500">Kepuasan</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="absolute -bottom-4 -left-4 bg-white rounded-xl shadow-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                      <User className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900">150+</p>
+                      <p className="text-xs text-gray-500">Dokter</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </motion.div>
           </div>
+        </div>
+      </section>
 
-          {/* BAR STATISTIK / COUNTER */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-20 pt-10 border-t border-slate-900">
-            <div className="flex flex-col">
-              <AnimatedCounter value="8" suffix="+" />
-              <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase mt-1">
-                Tahun Pengalaman
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <AnimatedCounter value="12.500" suffix="+" />
-              <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase mt-1">
-                Eksekusi Trade
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <AnimatedCounter value="2,5" suffix="M+" />
-              <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase mt-1">
-                Dana Kelolaan (USD)
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <AnimatedCounter value="12" suffix="%" />
-              <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase mt-1">
-                Rata-Rata ROI Bulanan
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <hr className="border-slate-900" />
-
-        {/* TENTANG SAYA */}
-        <section id="tentang" className="py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-            <div className="lg:col-span-5">
-              <div className="sticky top-28">
-                <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-                  PROFIL TRADER
-                </span>
-                <h2 className="text-3xl sm:text-4xl font-bold text-white mt-2 mb-6">
-                  Disiplin Tanpa Kompromi,
-                  <br />
-                  Eksekusi Matematis.
-                </h2>
-                <p className="text-slate-400 leading-relaxed mb-6">
-                  Saya adalah seorang Professional Trader dengan pengalaman
-                  lebih dari 8 tahun di pasar finansial global. Fokus utama saya
-                  meliputi instrumen Forex, Cryptocurrency, Indices, Gold, dan
-                  Stock Trading.
+      {/* ===== STATS SECTION ===== */}
+      <section className="relative -mt-16 z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-2xl shadow-2xl shadow-gray-200/50 border border-gray-100 p-8 md:p-12">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+            {STATS.map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="text-center"
+              >
+                <AnimatedCounter value={stat.value} suffix={stat.suffix} />
+                <p className="text-sm text-gray-500 mt-2 font-medium">
+                  {stat.label}
                 </p>
-                <p className="text-slate-400 leading-relaxed">
-                  Saya mengintegrasikan kekuatan analisis fundamental makro
-                  serta teknikal kuantitatif demi menjaga konsistensi ekuitas
-                  portofolio dari siklus volatilitas pasar yang ekstrem.
-                </p>
-              </div>
-            </div>
-
-            <div className="lg:col-span-7 space-y-8">
-              <h3 className="text-lg font-semibold text-slate-300">
-                Rekam Jejak & Milestone Profesional
-              </h3>
-              <div className="border-l-2 border-slate-800 pl-6 ml-2 space-y-10">
-                {[
-                  {
-                    tahun: "2024 - Sekarang",
-                    title: "Institutional Asset Manager",
-                    desc: "Mengelola portofolio privat multi-aset bernilai $2.5M+ dengan implementasi kontrol risiko absolut.",
-                  },
-                  {
-                    tahun: "2021 - 2023",
-                    title: "Prop Firm Funded Trader",
-                    desc: "Berhasil melewati berbagai tantangan pendanaan institusional global dan masuk dalam jajaran Top 1% Trader Challenge.",
-                  },
-                  {
-                    tahun: "2018 - 2020",
-                    title: "Full-Time Retail Trader",
-                    desc: "Membangun sistem perdagangan mekanikal mandiri berbasis Price Action, Smart Money Concept (SMC), dan strategi ICT.",
-                  },
-                ].map((milestone, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, x: -10 }}
-                    whileInView={{ opacity: 1, x: 0 }}
-                    viewport={{ once: true }}
-                    className="relative"
-                  >
-                    <span className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-cyan-400 ring-4 ring-[#050816]" />
-                    <span className="text-xs font-mono font-bold text-cyan-400">
-                      {milestone.tahun}
-                    </span>
-                    <h4 className="text-lg font-bold text-white mt-1">
-                      {milestone.title}
-                    </h4>
-                    <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-                      {milestone.desc}
-                    </p>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+              </motion.div>
+            ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <hr className="border-slate-900" />
+      {/* ===== LAYANAN SECTION ===== */}
+      <section id="layanan" className="py-24 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.span
+              variants={fadeInUp}
+              className="text-sm font-semibold text-blue-600 uppercase tracking-wider"
+            >
+              Layanan Kami
+            </motion.span>
+            <motion.h2
+              variants={fadeInUp}
+              className="text-3xl md:text-4xl font-bold text-gray-900 mt-2"
+            >
+              Pelayanan Kesehatan Lengkap
+            </motion.h2>
+            <motion.p
+              variants={fadeInUp}
+              className="text-gray-500 mt-4 max-w-2xl mx-auto"
+            >
+              Kami menyediakan berbagai layanan kesehatan dengan standar
+              internasional untuk memenuhi kebutuhan Anda
+            </motion.p>
+          </motion.div>
 
-        {/* KEAHLIAN TRADING */}
-        <section id="keahlian" className="py-24">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-              KAPABILITAS
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mt-2">
-              Ekosistem Analisis & Strategi
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                icon: BarChart3,
-                name: "Analisis Teknikal & Fundamental",
-                desc: "Sinergi metodologi struktur grafik kuantitatif yang dipadukan dengan proyeksi rilis data makroekonomi bank sentral global.",
-              },
-              {
-                icon: Shield,
-                name: "Smart Money Concept & ICT",
-                desc: "Membaca jejak likuiditas institusi besar (Order Blocks, Fair Value Gaps) untuk akurasi entri dengan rasio Risk-to-Reward maksimal.",
-              },
-              {
-                icon: Target,
-                name: "Manajemen Risiko Rigid",
-                desc: "Penerapan kalkulasi lot ketat serta batas drawdown maksimal 1% per setup perdagangan demi ketahanan jangka panjang akun.",
-              },
-              {
-                icon: Cpu,
-                name: "Optimasi Portofolio",
-                desc: "Diversifikasi adaptif multi-aset untuk menyeimbangkan kurva pertumbuhan modal di berbagai kondisi market (Bullish / Bearish).",
-              },
-              {
-                icon: Layers,
-                name: "Eksekusi Multi-Gaya",
-                desc: "Fleksibilitas taktis sesuai kondisi pasar, mulai dari Scalping jangka pendek, Intraday Swing Trading, hingga Position Trading.",
-              },
-              {
-                icon: Globe,
-                name: "Analisis Struktur Pasar",
-                desc: "Pemetaan fraktal tren makro ke mikro secara berkala guna mengantisipasi akumulasi likuiditas dan pembalikan arah harga.",
-              },
-            ].map((skill, idx) => {
-              const IconComp = skill.icon;
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          >
+            {SERVICES.map((service, index) => {
+              const Icon = iconMap[service.icon] || Stethoscope;
               return (
                 <motion.div
-                  key={idx}
-                  whileHover={{ y: -5, borderColor: "rgba(34, 211, 238, 0.4)" }}
-                  className="p-6 bg-[#0a0f24]/40 border border-slate-800/80 rounded-2xl transition-all group"
+                  key={index}
+                  variants={fadeInUp}
+                  className="group bg-white rounded-xl p-6 border border-gray-100 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-100/50 transition-all duration-300"
                 >
-                  <div className="h-12 w-12 rounded-xl bg-slate-900 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-500 group-hover:text-black transition-all">
-                    <IconComp className="h-5 w-5" />
+                  <div className="h-14 w-14 rounded-xl bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center mb-4 transition-colors">
+                    <Icon className="h-7 w-7 text-blue-600" />
                   </div>
-                  <h3 className="text-lg font-bold text-white mt-4 mb-2">
-                    {skill.name}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {service.title}
                   </h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">
-                    {skill.desc}
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    {service.description}
                   </p>
                 </motion.div>
               );
             })}
-          </div>
+          </motion.div>
+        </div>
+      </section>
 
-          {/* INTEGRASI PLATFORM */}
-          <div className="mt-16 p-8 rounded-2xl border border-slate-900 bg-gradient-to-r from-slate-950 to-[#0a0f24] relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-5 text-8xl font-black select-none pointer-events-none">
-              TERMINAL
-            </div>
-            <h4 className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">
-              Infrastruktur & Platform Eksekusi Profesional
-            </h4>
-            <div className="flex flex-wrap gap-3">
-              {[
-                "MetaTrader 4",
-                "MetaTrader 5",
-                "TradingView",
-                "Binance",
-                "Bybit",
-                "OKX",
-                "Interactive Brokers",
-                "cTrader",
-                "NinjaTrader",
-                "Thinkorswim",
-              ].map((platform) => (
-                <span
-                  key={platform}
-                  className="px-4 py-2 text-xs font-mono rounded-lg bg-slate-900 border border-slate-800 text-slate-300"
-                >
-                  {platform}
-                </span>
+      {/* ===== DOKTER SECTION ===== */}
+      <section id="dokter" className="py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.span
+              variants={fadeInUp}
+              className="text-sm font-semibold text-blue-600 uppercase tracking-wider"
+            >
+              Dokter Kami
+            </motion.span>
+            <motion.h2
+              variants={fadeInUp}
+              className="text-3xl md:text-4xl font-bold text-gray-900 mt-2"
+            >
+              Dokter Spesialis Terbaik
+            </motion.h2>
+            <motion.p
+              variants={fadeInUp}
+              className="text-gray-500 mt-4 max-w-2xl mx-auto"
+            >
+              Ditangani oleh dokter-dokter spesialis berpengalaman di bidangnya
+              masing-masing
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          >
+            {doctors.map((doctor, index) => (
+              <motion.div
+                key={index}
+                variants={fadeInUp}
+                className="group bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-xl hover:shadow-blue-100/50 transition-all duration-300"
+              >
+                <div className="aspect-square bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center">
+                  <div className="h-24 w-24 rounded-full bg-white shadow-lg flex items-center justify-center">
+                    <User className="h-12 w-12 text-blue-600" />
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h3 className="font-semibold text-gray-900">{doctor.name}</h3>
+                  <p className="text-sm text-blue-600 font-medium mt-1">
+                    {doctor.spesialis}
+                  </p>
+                  <div className="flex items-center gap-4 mt-4 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                      {doctor.rating}
+                    </span>
+                    <span>{doctor.pasien} pasien</span>
+                  </div>
+                  <Link href="/dashboard/booking">
+                    <Button
+                      variant="outline"
+                      className="w-full mt-4 border-blue-200 text-blue-600 hover:bg-blue-50"
+                    >
+                      Lihat Jadwal
+                      <Calendar className="h-4 w-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ===== TESTIMONIALS ===== */}
+      <section className="py-24 bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')]" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+            className="text-center mb-16"
+          >
+            <motion.span
+              variants={fadeInUp}
+              className="text-sm font-semibold text-blue-200 uppercase tracking-wider"
+            >
+              Testimoni
+            </motion.span>
+            <motion.h2
+              variants={fadeInUp}
+              className="text-3xl md:text-4xl font-bold text-white mt-2"
+            >
+              Apa Kata Pasien Kami
+            </motion.h2>
+          </motion.div>
+
+          <div className="max-w-3xl mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={testimonialIndex}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-white/10"
+              >
+                <Quote className="h-12 w-12 text-blue-300/50 mb-6" />
+                <p className="text-lg md:text-xl text-white/90 leading-relaxed mb-8">
+                  "{testimonials[testimonialIndex].content}"
+                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-white">
+                      {testimonials[testimonialIndex].name}
+                    </p>
+                    <p className="text-sm text-blue-200">
+                      {testimonials[testimonialIndex].role}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {Array.from({
+                      length: testimonials[testimonialIndex].rating,
+                    }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className="h-5 w-5 fill-yellow-400 text-yellow-400"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+            <div className="flex justify-center gap-3 mt-8">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setTestimonialIndex(index)}
+                  className={`h-2.5 rounded-full transition-all ${
+                    index === testimonialIndex
+                      ? "w-8 bg-white"
+                      : "w-2.5 bg-white/30"
+                  }`}
+                />
               ))}
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <hr className="border-slate-900" />
+      {/* ===== CTA SECTION ===== */}
+      <section className="py-24">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={staggerContainer}
+          >
+            <motion.h2
+              variants={fadeInUp}
+              className="text-3xl md:text-4xl font-bold text-gray-900"
+            >
+              Siap untuk Mendapatkan Pelayanan Kesehatan Terbaik?
+            </motion.h2>
+            <motion.p
+              variants={fadeInUp}
+              className="text-gray-500 mt-4 max-w-2xl mx-auto"
+            >
+              Jadwalkan konsultasi dengan dokter spesialis kami sekarang juga.
+              Proses cepat dan mudah melalui sistem online.
+            </motion.p>
+            <motion.div
+              variants={fadeInUp}
+              className="flex flex-wrap justify-center gap-4 mt-8"
+            >
+              <Link href="/dashboard/booking">
+                <Button
+                  size="xl"
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200"
+                >
+                  Buat Janji Sekarang
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+              </Link>
+              <Link href="tel:119">
+                <Button
+                  size="xl"
+                  variant="outline"
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Phone className="h-5 w-5 mr-2" />
+                  UGD 119
+                </Button>
+              </Link>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
 
-        {/* PERFORMANCE DASHBOARD */}
-        <section id="kinerja" className="py-24">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-4">
+      {/* ===== FOOTER ===== */}
+      <footer id="kontak" className="bg-gray-900 text-gray-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12">
             <div>
-              <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-                METRIK TERODIT
-              </span>
-              <h2 className="text-3xl sm:text-4xl font-bold text-white mt-2">
-                Dashboard Kinerja Terverifikasi
-              </h2>
-            </div>
-
-            {/* Kontrol Tab */}
-            <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
-              <button
-                onClick={() => setActiveTab("ikhtisar")}
-                className={`px-4 py-2 rounded-lg transition-all ${activeTab === "ikhtisar" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"}`}
-              >
-                Ikhtisar ROI
-              </button>
-              <button
-                onClick={() => setActiveTab("pertumbuhan")}
-                className={`px-4 py-2 rounded-lg transition-all ${activeTab === "pertumbuhan" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"}`}
-              >
-                Kurva Ekuitas
-              </button>
-            </div>
-          </div>
-
-          {/* GRID GRAFIK UTAMA */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div className="lg:col-span-8 border border-slate-800 bg-[#0a0f24]/50 rounded-2xl p-6">
-              <AnimatePresence mode="wait">
-                {activeTab === "ikhtisar" ? (
-                  <motion.div
-                    key="ikhtisar"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="h-80 w-full"
-                  >
-                    <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-sm font-semibold text-slate-300">
-                        Performa ROI Bulanan (%)
-                      </h4>
-                      <span className="text-xs text-emerald-400 flex items-center gap-1 font-mono">
-                        <Activity className="h-3 w-3" /> RATA-RATA YTD: +13,1%
-                      </span>
-                    </div>
-                    <ResponsiveContainer width="100%" height="90%">
-                      <BarChart data={dataRoiBulanan}>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="#1f2937/40"
-                        />
-                        <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                        <YAxis stroke="#64748b" fontSize={12} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "#0f172a",
-                            borderColor: "#334155",
-                          }}
-                        />
-                        <Bar dataKey="ROI" fill="#3b82f6" radius={[4, 4, 0, 0]}>
-                          {dataRoiBulanan.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={entry.ROI > 12 ? "#10b981" : "#3b82f6"}
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="pertumbuhan"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="h-80 w-full"
-                  >
-                    <div className="flex justify-between items-center mb-4">
-                      <h4 className="text-sm font-semibold text-slate-300">
-                        Kurva Pertumbuhan Kapital AUM (USD)
-                      </h4>
-                      <span className="text-xs text-cyan-400 flex items-center gap-1 font-mono">
-                        <TrendingUp className="h-3 w-3" /> Pertumbuhan Majemuk
-                      </span>
-                    </div>
-                    <ResponsiveContainer width="100%" height="90%">
-                      <LineChart data={pertumbuhanPortofolio}>
-                        <CartesianGrid
-                          strokeDasharray="3 3"
-                          stroke="#1f2937/40"
-                        />
-                        <XAxis dataKey="tahun" stroke="#64748b" fontSize={12} />
-                        <YAxis stroke="#64748b" fontSize={12} />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: "#0f172a",
-                            borderColor: "#334155",
-                          }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="Saldo"
-                          stroke="#8b5cf6"
-                          strokeWidth={3}
-                          dot={{ r: 6 }}
-                          activeDot={{ r: 8 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* GRAFIK PIE ALOKASI ASET */}
-            <div className="lg:col-span-4 border border-slate-800 bg-[#0a0f24]/50 rounded-2xl p-6 flex flex-col justify-between">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-300 mb-4">
-                  Alokasi Berdasarkan Kelas Aset
-                </h4>
-                <div className="h-44 w-full flex justify-center items-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={alokasiAset}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={75}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {alokasiAset.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <HeartPulse className="h-5 w-5 text-white" />
                 </div>
-              </div>
-
-              <div className="space-y-2 mt-4">
-                {alokasiAset.map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex justify-between text-xs border-b border-slate-900 pb-1.5"
-                  >
-                    <span className="flex items-center gap-2 text-slate-400">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      {item.name}
-                    </span>
-                    <span className="font-mono font-bold text-white">
-                      {item.value}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <hr className="border-slate-900" />
-
-        {/* PRESTASI & SERTIFIKASI */}
-        <section id="prestasi" className="py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            <div>
-              <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-                REKAM JEJAK
-              </span>
-              <h2 className="text-3xl font-bold text-white mt-2 mb-8">
-                Pencapaian & Prestasi
-              </h2>
-              <div className="space-y-4">
-                {[
-                  "Top 1% Trader Challenge 2024",
-                  "Mencatatkan 250% Pertumbuhan Portofolio dalam 3 Tahun",
-                  "Mengelola Portofolio Perdagangan Multi-Aset Skala Global",
-                  "Mentorship Lebih dari 500+ Trader Pemula Secara Internal",
-                  "Pembicara Utama di Berbagai Acara Trading & Investasi Finansial",
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 p-4 rounded-xl border border-slate-900 bg-[#0a0f24]/20"
-                  >
-                    <Award className="h-5 w-5 text-amber-500 shrink-0" />
-                    <span className="text-sm font-medium text-slate-300">
-                      {item}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-                VALIDASI Kredensial
-              </span>
-              <h2 className="text-3xl font-bold text-white mt-2 mb-8">
-                Sertifikasi Profesional
-              </h2>
-              <div className="space-y-4">
-                {[
-                  {
-                    title: "Certified Financial Market Analyst (CFMA)",
-                    issuer: "Global Financial Certification Board",
-                  },
-                  {
-                    title: "Advanced Technical Analysis Certification",
-                    issuer: "Alpha Market Analytics Academy",
-                  },
-                  {
-                    title: "Professional Risk Management Certification",
-                    issuer: "Risk Institute Standard",
-                  },
-                  {
-                    title: "Forex Market Specialist Designation",
-                    issuer: "International Currency Association",
-                  },
-                ].map((cert, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-col p-4 rounded-xl border border-slate-900 bg-[#0a0f24]/20"
-                  >
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-cyan-400 shrink-0" />
-                      <span className="text-sm font-bold text-white">
-                        {cert.title}
-                      </span>
-                    </div>
-                    <span className="text-xs text-slate-500 ml-8 mt-1">
-                      {cert.issuer}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <hr className="border-slate-900" />
-
-        {/* FILOSOFI TRADING */}
-        <section id="filosofi" className="py-24">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-              SISTEM UTAMA
-            </span>
-            <h2 className="text-3xl font-bold text-white mt-2">
-              Filosofi Metodologis
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                title: "Prioritas Risiko Atas Profit",
-                text: "Keuntungan hanyalah produk sampingan dari manajemen risiko yang sempurna. Mengamankan modal adalah mandat utama.",
-              },
-              {
-                title: "Konsistensi Dibanding Instan",
-                text: "Menghindari ekspektasi profit cepat secara mekanis melahirkan akumulasi keuntungan stabil jangka panjang.",
-              },
-              {
-                title: "Keputusan Berbasis Data",
-                text: "Setiap penekanan tombol beli/jual didasari validasi riset empiris yang terukur, bukan sekadar intuisi atau emosi.",
-              },
-              {
-                title: "Keberlanjutan Jangka Panjang",
-                text: "Menjaga kondisi psikologis eksekusi yang rileks demi ketahanan performa pertumbuhan akun bertahun-tahun ke depan.",
-              },
-            ].map((phil, idx) => (
-              <div
-                key={idx}
-                className="p-6 rounded-xl border border-slate-900 bg-slate-950/40 relative"
-              >
-                <span className="text-4xl font-black text-slate-800 absolute top-4 right-4 font-mono">
-                  0{idx + 1}
+                <span className="text-lg font-bold text-white">
+                  RS Setiabudi
                 </span>
-                <h4 className="text-base font-bold text-white mb-2 mt-4">
-                  {phil.title}
-                </h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  {phil.text}
-                </p>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <hr className="border-slate-900" />
-
-        {/* TESTIMONIALS SECTION */}
-        <section className="py-24">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-              REKOMENDASI
-            </span>
-            <h2 className="text-3xl font-bold text-white mt-2">
-              Ulasan Mitra Institusional
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                name: "Michael Tan",
-                role: "Investor",
-                text: "Nova secara konsisten menunjukkan analisis pasar yang luar biasa serta eksekusi yang sangat disiplin.",
-              },
-              {
-                name: "Sarah Wijaya",
-                role: "Pengusaha",
-                text: "Trader profesional dengan kerangka manajemen risiko yang sangat kuat dan performa bulanan yang konsisten.",
-              },
-              {
-                name: "David Lim",
-                role: "Portfolio Manager",
-                text: "Salah satu trader paling berdedikasi tinggi yang pernah bekerja sama dengan kami dalam pengelolaan modal.",
-              },
-            ].map((testi, idx) => (
-              <div
-                key={idx}
-                className="p-6 rounded-xl border border-slate-800/80 bg-[#0a0f24]/30 flex flex-col justify-between"
-              >
-                <p className="text-sm text-slate-400 italic leading-relaxed">
-                  "{testi.text}"
-                </p>
-                <div className="mt-6 pt-4 border-t border-t-slate-900 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs text-cyan-400">
-                    {testi.name[0]}
-                  </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-white">
-                      {testi.name}
-                    </h5>
-                    <span className="text-xs text-slate-500">{testi.role}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <hr className="border-slate-900" />
-
-        {/* KONTAK SECTION */}
-        <section id="kontak" className="py-24">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            <div className="lg:col-span-5">
-              <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase">
-                KONTAK UTAMA
-              </span>
-              <h2 className="text-3xl font-bold text-white mt-2 mb-4">
-                Mari Diskusikan Alokasi Sinergi Kapital
-              </h2>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                Terbuka untuk diskusi kolaborasi akun korporasi, pengelolaan
-                likuiditas private portfolio capital, atau undangan pembicara
-                panel finansial makro global.
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Rumah Sakit terpercaya dengan pelayanan kesehatan modern,
+                didukung tenaga medis profesional dan sistem digital terpadu.
               </p>
-
-              <div className="space-y-4 font-mono text-xs">
-                <div className="flex items-center gap-3 text-slate-300">
-                  <Mail className="h-4 w-4 text-cyan-400" />
-                  <span>nova.haryanto@example.com</span>
-                </div>
-                <div className="flex items-center gap-3 text-slate-300">
-                  <Briefcase className="h-4 w-4 text-cyan-400" />
-                  <span>Tangerang, Banten, Indonesia</span>
-                </div>
+              <div className="flex gap-4 mt-6">
+                <a
+                  href="#"
+                  className="h-10 w-10 rounded-lg bg-gray-800 flex items-center justify-center hover:bg-blue-600 transition-colors"
+                >
+                  <Globe className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="h-10 w-10 rounded-lg bg-gray-800 flex items-center justify-center hover:bg-blue-600 transition-colors"
+                >
+                  <Video className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="h-10 w-10 rounded-lg bg-gray-800 flex items-center justify-center hover:bg-blue-600 transition-colors"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </a>
+                <a
+                  href="#"
+                  className="h-10 w-10 rounded-lg bg-gray-800 flex items-center justify-center hover:bg-blue-600 transition-colors"
+                >
+                  <Mail className="h-5 w-5" />
+                </a>
               </div>
+            </div>
 
-              {/* TAUTAN SOSIAL MEDIA */}
-              <div className="flex flex-wrap gap-3 mt-8">
-                {[
-                  "LinkedIn",
-                  "Telegram",
-                  "Instagram",
-                  "YouTube",
-                  "TradingView",
-                ].map((soc) => (
-                  <a
-                    key={soc}
-                    href="#"
-                    className="px-3 py-1.5 bg-slate-900 hover:bg-cyan-500 hover:text-black transition-all border border-slate-800 text-slate-400 text-xs rounded font-medium flex items-center gap-1.5"
-                  >
-                    {soc} <ExternalLink className="h-2.5 w-2.5" />
-                  </a>
+            <div>
+              <h3 className="text-white font-semibold mb-6">Layanan</h3>
+              <ul className="space-y-3">
+                {SERVICES.slice(0, 6).map((service, index) => (
+                  <li key={index}>
+                    <a
+                      href="#"
+                      className="text-sm text-gray-400 hover:text-white transition-colors"
+                    >
+                      {service.title}
+                    </a>
+                  </li>
                 ))}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-white font-semibold mb-6">Jam Operasional</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <Clock className="h-4 w-4 text-blue-400" />
+                  <div>
+                    <p className="text-gray-300">Senin - Jumat</p>
+                    <p className="text-gray-500">
+                      {CONTACT_INFO.hours.weekdays}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Clock className="h-4 w-4 text-blue-400" />
+                  <div>
+                    <p className="text-gray-300">Sabtu - Minggu</p>
+                    <p className="text-gray-500">
+                      {CONTACT_INFO.hours.weekend}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Ambulance className="h-4 w-4 text-red-400" />
+                  <div>
+                    <p className="text-gray-300">UGD</p>
+                    <p className="text-gray-500">
+                      {CONTACT_INFO.hours.emergency}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* FORMULIR AMAN */}
-            <div className="lg:col-span-7">
-              <form className="p-6 border border-slate-800 bg-[#0a0f24]/50 rounded-2xl space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-white font-semibold mb-6">Kontak</h3>
+              <div className="space-y-4 text-sm">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-4 w-4 text-blue-400 mt-0.5" />
+                  <p className="text-gray-400">{CONTACT_INFO.address}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-blue-400" />
+                  <p className="text-gray-400">{CONTACT_INFO.phone}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-blue-400" />
+                  <p className="text-gray-400">{CONTACT_INFO.email}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Ambulance className="h-4 w-4 text-red-400" />
                   <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">
-                      Nama Lengkap
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-400"
-                      placeholder="Contoh: John Doe"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">
-                      Email Perusahaan
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-400"
-                      placeholder="johndoe@firm.com"
-                    />
+                    <p className="text-gray-300">UGD</p>
+                    <p className="text-gray-500">
+                      {CONTACT_INFO.hours.emergency}
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Subjek Pengajuan
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-400"
-                    placeholder="Manajemen Kapital / Undangan Pembicara"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Pesan Proposal Kerjasama
-                  </label>
-                  <textarea
-                    rows={4}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-cyan-400 resize-none"
-                    placeholder="Detail spesifikasi kebutuhan kolaborasi bisnis Anda di sini..."
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <button
-                    type="submit"
-                    className="flex-1 py-3 px-6 rounded-xl font-bold bg-blue-600 text-white text-sm hover:bg-blue-500 transition-all text-center"
-                  >
-                    Kirim Pesan Terenkripsi
-                  </button>
-                  <a
-                    href="https://wa.me/6281281916880"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="py-3 px-6 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-500 text-white text-sm transition-all text-center flex items-center justify-center gap-2"
-                  >
-                    <MessageSquare className="h-4 w-4" /> WhatsApp Langsung
-                  </a>
-                </div>
-              </form>
+              </div>
             </div>
           </div>
-        </section>
-      </main>
 
-      {/* FOOTER INSTITUSIONAL */}
-      <footer className="w-full bg-[#03050e] border-t border-slate-950 py-8 text-xs text-slate-600 font-mono">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>
-            &copy; 2026 Nova Haryanto. Hak Cipta Institusional Dilindungi.
-          </div>
-          <div className="flex gap-6 text-[10px]">
-            <span>
-              PERINGATAN RISIKO: Perdagangan aset finansial melibatkan risiko
-              likuidasi kapital yang tinggi. Kinerja masa lalu bukan jaminan
-              mutlak untuk hasil di masa mendatang.
-            </span>
+          <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-500">
+              &copy; {new Date().getFullYear()} Rumah Sakit Setiabudi. All
+              rights reserved.
+            </p>
+            <div className="flex gap-6 text-sm text-gray-500">
+              <a href="#" className="hover:text-gray-300 transition-colors">
+                Kebijakan Privasi
+              </a>
+              <a href="#" className="hover:text-gray-300 transition-colors">
+                Syarat & Ketentuan
+              </a>
+            </div>
           </div>
         </div>
       </footer>
